@@ -1,0 +1,79 @@
+#!/bin/bash
+set -e
+
+# Check if service was running before upgrade
+SERVICE_WAS_RUNNING=0
+if [ "$1" = "upgrade" ] && [ -d /run/systemd/system ]; then
+    if systemctl is-active --quiet athens 2>/dev/null; then
+        SERVICE_WAS_RUNNING=1
+        echo "Athens service is running, will restart after upgrade..."
+    fi
+fi
+
+# Create athens user and group if they don't exist
+if ! getent group athens >/dev/null; then
+    groupadd --system athens
+fi
+
+if ! getent passwd athens >/dev/null; then
+    useradd --system --gid athens --home-dir /var/lib/athens --shell /bin/false athens
+fi
+
+# Create necessary directories
+mkdir -p /var/lib/athens
+mkdir -p /var/log/athens
+mkdir -p /etc/athens
+
+# Only copy config file on fresh install, not on upgrade
+if [ ! -f /etc/athens/config.toml ]; then
+    if [ -f /etc/athens/config.toml.example ]; then
+        cp /etc/athens/config.toml.example /etc/athens/config.toml
+        echo "Created /etc/athens/config.toml from example"
+    fi
+fi
+
+# Set ownership
+chown -R athens:athens /var/lib/athens
+chown -R athens:athens /var/log/athens
+chown athens:athens /etc/athens
+
+# Set ownership for config files if they exist
+if [ -f /etc/athens/config.toml ]; then
+    chown athens:athens /etc/athens/config.toml
+    chmod 600 /etc/athens/config.toml
+fi
+
+if [ -f /etc/athens/config.toml.example ]; then
+    chown root:root /etc/athens/config.toml.example
+    chmod 644 /etc/athens/config.toml.example
+fi
+
+# Set permissions
+chmod 755 /var/lib/athens
+chmod 755 /var/log/athens
+chmod 755 /etc/athens
+
+# Reload systemd if present
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable athens >/dev/null 2>&1 || true
+    
+    # Restart service if it was running before upgrade
+    if [ "$SERVICE_WAS_RUNNING" = "1" ]; then
+        echo "Restarting Athens service..."
+        systemctl restart athens >/dev/null 2>&1 || true
+        if systemctl is-active --quiet athens; then
+            echo "✓ Athens service restarted successfully"
+        else
+            echo "⚠ Athens service failed to restart. Check: systemctl status athens"
+        fi
+    fi
+fi
+
+echo "Athens proxy installed successfully!"
+if [ ! -f /etc/athens/config.toml ] || [ -f /etc/athens/config.toml.example ]; then
+    echo "Configure your GitHub PATs in /etc/athens/config.toml"
+fi
+echo "Start the service with: systemctl start athens"
+
+exit 0

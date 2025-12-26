@@ -1,0 +1,232 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: false
+        default: '0.0.1'
+
+jobs:
+  build-deb:
+    name: Build DEB Package
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Determine version
+        id: version
+        run: |
+          # Extract base version from control file
+          BASE_VERSION=$(grep "^Version:" deb/control | awk '{print $2}')
+          ARCH="${{ matrix.arch }}"
+          
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            # For dev builds, append git hash to base version
+            VERSION="${BASE_VERSION}-dev-$(git rev-parse --short HEAD)"
+          fi
+          
+          DEB_FILENAME="build/deb/athens-multipat_${VERSION}_${ARCH}.deb"
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "deb_filename=${DEB_FILENAME}" >> $GITHUB_OUTPUT
+          echo "Base version from control file: ${BASE_VERSION}"
+          echo "Building version: ${VERSION}"
+          echo "DEB filename: ${DEB_FILENAME}"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+
+      - name: Update control file version
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^Version: .*/Version: ${VERSION}/" deb/control
+          echo "Updated control file to version: ${VERSION}"
+          grep "^Version:" deb/control
+
+      - name: Build Debian package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          bash scripts/build-deb.sh "${VERSION}" "${ARCH}"
+
+      - name: Upload DEB package to file server
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DEB_FILE="${{ steps.version.outputs.deb_filename }}"
+          
+          for i in 1 2 3; do
+            echo "Upload attempt $i of 3..."
+            RESPONSE=$(curl -X POST https://a257hgta66.gtn.one:8443/xt21/api/upload \
+              -F "path=packages/athens-multipat" \
+              -F "file=@${DEB_FILE}" \
+              --insecure -w "\n%{http_code}" -s)
+            
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n-1)
+            
+            echo "HTTP Status: $HTTP_CODE"
+            echo "Response: $BODY"
+            
+            if [ "$HTTP_CODE" -eq 200 ] && ! echo "$BODY" | grep -qi "error"; then
+              echo "Upload successful"
+              break
+            else
+              echo "Upload failed - Server error or HTTP error"
+              if [ $i -lt 3 ]; then
+                echo "Retrying in 5 seconds..."
+                sleep 5
+              else
+                echo "Upload failed after 3 attempts"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: athens-multipat_${{ steps.version.outputs.version }}_${{ matrix.arch }}.deb
+          path: build/deb/athens-multipat_${{ steps.version.outputs.version }}_${{ matrix.arch }}.deb
+          retention-days: 30
+
+      - name: Create checksums
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd build/deb
+          sha256sum *.deb > checksums.txt
+          cat checksums.txt
+
+      - name: Upload checksum
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums_${{ matrix.arch }}.txt
+          path: build/deb/checksums.txt
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build-deb
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -name "*.deb" -exec cp {} release/ \;
+          find artifacts -name "checksums*.txt" -exec cat {} \; > release/checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-install:
+    name: Test Installation
+    needs: build-deb
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64]
+        os: [ubuntu-24.04, debian:12]
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: athens-multipat_*_${{ matrix.arch }}.deb
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: |
+          echo "Contents of current directory:"
+          ls -la
+          echo "Searching for .deb files:"
+          find . -name "*.deb" -type f
+
+      - name: Test package installation
+        run: |
+          DEB_FILE=$(find . -name "*.deb" -type f | head -n 1)
+          echo "Testing package: ${DEB_FILE}"
+          
+          if [ ! -f "${DEB_FILE}" ]; then
+            echo "Error: DEB file not found!"
+            exit 1
+          fi
+          
+          # Install the package
+          sudo dpkg -i "${DEB_FILE}" || sudo apt-get install -f -y
+          
+          # Verify binary is installed
+          which athens
+          
+          # Check version
+          athens --help || true
+          
+          # Verify systemd service exists
+          systemctl cat athens || true
+          
+          # Verify user and group exist
+          id athens
+          
+          # Verify directories exist
+          ls -la /var/lib/athens
+          ls -la /etc/athens
+          
+          echo "Installation test passed!"

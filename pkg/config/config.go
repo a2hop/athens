@@ -18,6 +18,14 @@ import (
 
 const defaultConfigFile = "athens.toml"
 
+// GitAuth represents authentication configuration for any Git hosting provider
+type GitAuth struct {
+	Host  string `toml:"host"  json:"host"`  // e.g., "github.com", "gitlab.com", "bitbucket.org"
+	Org   string `toml:"org"   json:"org"`   // Organization/group/user name
+	Token string `toml:"token" json:"token"` // Personal Access Token or password
+	User  string `toml:"user"  json:"user"`  // Optional: username (defaults to "x-access-token" for GitHub, "oauth2" for GitLab)
+}
+
 // Config provides configuration values for all components.
 type Config struct {
 	TimeoutConf
@@ -47,7 +55,8 @@ type Config struct {
 	ValidatorHook    string    `envconfig:"ATHENS_PROXY_VALIDATOR"`
 	PathPrefix       string    `envconfig:"ATHENS_PATH_PREFIX"`
 	NETRCPath        string    `envconfig:"ATHENS_NETRC_PATH"`
-	GithubToken      string    `envconfig:"ATHENS_GITHUB_TOKEN"`
+	GithubToken      string    `envconfig:"ATHENS_GITHUB_TOKEN"` // Deprecated: use GitAuths instead
+	GitAuths         []GitAuth // Git authentication for any provider (GitHub, GitLab, etc.)
 	HGRCPath         string    `envconfig:"ATHENS_HGRC_PATH"`
 	TLSCertFile      string    `envconfig:"ATHENS_TLSCERT_FILE"`
 	TLSKeyFile       string    `envconfig:"ATHENS_TLSKEY_FILE"`
@@ -239,6 +248,9 @@ func ParseConfigFile(configFile string) (*Config, error) {
 		return nil, err
 	}
 
+	// Automatically configure GOPRIVATE for configured git providers
+	configureGoPrivate(&config)
+
 	// Check file perms from config
 	if config.GoEnv == "production" {
 		if err := checkFilePerms(configFile, config.FilterFile); err != nil {
@@ -270,6 +282,43 @@ func envOverride(config *Config) error {
 	}
 	config.Port = ensurePortFormat(config.Port)
 	return nil
+}
+
+// configureGoPrivate automatically adds organizations to GOPRIVATE
+// environment variable to skip checksum verification for private repos
+func configureGoPrivate(config *Config) {
+	if len(config.GitAuths) == 0 {
+		return
+	}
+
+	// Build GOPRIVATE patterns for all configured orgs
+	var patterns []string
+
+	for _, auth := range config.GitAuths {
+		patterns = append(patterns, fmt.Sprintf("%s/%s/*", auth.Host, auth.Org))
+	}
+
+	// Check if GOPRIVATE already exists in GoBinaryEnvVars
+	goprivateValue := strings.Join(patterns, ",")
+	hasGoPrivate := false
+
+	for i, env := range config.GoBinaryEnvVars {
+		if strings.HasPrefix(env, "GOPRIVATE=") {
+			// Merge with existing GOPRIVATE
+			existing := strings.TrimPrefix(env, "GOPRIVATE=")
+			if existing != "" {
+				goprivateValue = existing + "," + goprivateValue
+			}
+			config.GoBinaryEnvVars[i] = "GOPRIVATE=" + goprivateValue
+			hasGoPrivate = true
+			break
+		}
+	}
+
+	// Add GOPRIVATE if it doesn't exist
+	if !hasGoPrivate {
+		config.GoBinaryEnvVars = append(config.GoBinaryEnvVars, "GOPRIVATE="+goprivateValue)
+	}
 }
 
 func ensurePortFormat(s string) string {

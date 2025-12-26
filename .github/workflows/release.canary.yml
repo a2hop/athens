@@ -1,9 +1,11 @@
 name: Release canary
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  # Disabled automatic triggers - using build-deb workflow instead
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   docker-push-main:

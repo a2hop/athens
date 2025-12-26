@@ -24,7 +24,10 @@ COPY . .
 RUN DATE="$(date -u +%Y-%m-%d-%H:%M:%S-%Z)" && \
     go build \
     -ldflags "-X github.com/gomods/athens/pkg/build.version=$VERSION -X github.com/gomods/athens/pkg/build.buildDate=$DATE -s -w" \
-    -o /bin/athens-proxy ./cmd/proxy
+    -o /bin/athens-proxy ./cmd/proxy && \
+    go build \
+    -ldflags "-s -w" \
+    -o /bin/git-credential-athens ./cmd/git-credential-athens
 
 FROM alpine:3.23
 ARG TARGETARCH
@@ -34,6 +37,7 @@ ENV GOROOT="/usr/local/go" \
     GO111MODULE=on
 
 COPY --from=builder /bin/athens-proxy /bin/athens-proxy
+COPY --from=builder /bin/git-credential-athens /usr/local/bin/git-credential-athens
 COPY --from=builder /go/src/github.com/gomods/athens/config.dev.toml /config/config.toml
 COPY --from=builder /usr/local/go/bin/go /usr/local/go/bin/go
 COPY --from=builder /usr/local/go/go.env /usr/local/go/go.env

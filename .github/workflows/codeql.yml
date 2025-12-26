@@ -1,12 +1,14 @@
 name: "CodeQL Security Scanning"
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
   schedule:
     - cron: "0 15 * * 0"
+  # Disabled automatic triggers - using build-deb workflow instead
+  # push:
+  #   branches: [main]
+  # pull_request:
+  #   branches: [main]
 
 jobs:
   analyze:

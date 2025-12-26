@@ -2,19 +2,10 @@ package module
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 )
-
-func testConfigFile(t *testing.T) (testConfigFile string) {
-	testConfigFile = filepath.Join("..", "..", "config.dev.toml")
-	if err := os.Chmod(testConfigFile, 0o700); err != nil {
-		t.Fatalf("%s\n", err)
-	}
-	return testConfigFile
-}
 
 type FilterTests struct {
 	suite.Suite

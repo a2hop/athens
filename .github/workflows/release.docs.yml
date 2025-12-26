@@ -1,10 +1,11 @@
 name: Build docs and deploy GitHub Pages
 on:
-  push: # run on any branch, but deploy only on main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch: # allow this task to be manually started
+  # Disabled automatic triggers - using build-deb workflow instead
+  # push: # run on any branch, but deploy only on main
+  # pull_request:
+  #   branches:
+  #     - main
 
 jobs:
   build-docs:

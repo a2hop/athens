@@ -1,0 +1,91 @@
+# Athens Configuration for Multi-Org GitHub PAT Support
+# Copy this to /etc/athens/config.toml and customize
+
+# Port to listen on
+Port = ":3000"
+
+# Go binary path - defaults to "go" in PATH
+GoBinary = "go"
+
+# Environment type: "development" or "production"
+GoEnv = "production"
+
+# Go binary environment variables
+GoBinaryEnvVars = ["GOPROXY=direct"]
+
+# Concurrent module download workers
+GoGetWorkers = 10
+
+# Concurrent protocol request workers
+ProtocolWorkers = 30
+
+# Logging configuration
+LogLevel = "info"
+LogFormat = "plain"
+
+# Cloud runtime - set to "none" for bare metal/VM deployments
+CloudRuntime = "none"
+
+# Network mode - must be one of: "strict", "offline", "fallback"
+# strict: only use storage, fail if not found
+# fallback: try storage first, then upstream if not found
+# offline: only use storage, never go upstream
+NetworkMode = "fallback"
+
+# Timeout for external network calls in seconds
+Timeout = 300
+
+# Download mode - how Athens behaves when a module is not found in storage
+# Options: "sync", "async", "redirect", "async_redirect", "none"
+# sync: download synchronously and return to client
+# async: return 404 but download in background
+# redirect: return 301 redirect to upstream
+# none: return 404 and do nothing
+DownloadMode = "sync"
+
+# Storage configuration
+StorageType = "disk"
+
+[Storage]
+  [Storage.Disk]
+    RootPath = "/var/lib/athens/storage"
+
+# GitHub Authentication
+# Legacy single token (backward compatible)
+GithubToken = ""
+
+# Multi-provider Git authentication (GitHub, GitLab, Bitbucket, etc.)
+# Add one entry per organization/group that requires private repo access
+#
+# GitHub example:
+# [[GitAuths]]
+#   host = "github.com"
+#   org = "mycompany"
+#   token = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#   # user = "x-access-token"  # Optional, defaults to x-access-token for GitHub
+#
+# GitLab example:
+# [[GitAuths]]
+#   host = "gitlab.com"
+#   org = "my-group"
+#   token = "glpat-xxxxxxxxxxxxx"
+#   # user = "oauth2"  # Optional, defaults to oauth2 for GitLab
+#
+# Self-hosted example:
+# [[GitAuths]]
+#   host = "gitlab.example.com"
+#   org = "internal-team"
+#   token = "your-token"
+#   user = "git"  # Optional custom username
+
+# Filter file for module filtering (optional)
+# FilterFile = "/etc/athens/filter.conf"
+
+# Robots file for web crawlers
+# RobotsFile = "/etc/athens/robots.txt"
+
+# Enable pprof for debugging (set to false in production)
+EnablePprof = false
+
+# Global endpoint for upstream proxy (optional)
+# GlobalEndpoint = "https://proxy.golang.org"

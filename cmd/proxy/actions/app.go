@@ -31,6 +31,11 @@ func App(logger *log.Logger, conf *config.Config) (http.Handler, error) {
 		}
 	}
 
+	// Setup git authentication for multi-org and multi-provider support
+	if err := setupGitCredentialHelper(conf); err != nil {
+		return nil, fmt.Errorf("setting up git credential helper: %w", err)
+	}
+
 	// mount .netrc to home dir
 	// to have access to private repos.
 	if err := initializeAuthFile(conf.NETRCPath); err != nil {

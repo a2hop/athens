@@ -206,6 +206,41 @@ NETRCPath = ""
 # Env override: ATHENS_GITHUB_TOKEN
 GithubToken = ""
 
+# GitAuths allows you to configure authentication for multiple Git hosting providers
+# (GitHub, GitLab, Bitbucket, self-hosted instances, etc.) with different tokens
+# for different organizations/groups. This is useful when you need to access private 
+# repos across multiple providers or organizations.
+#
+# Each entry specifies:
+#   - host: The Git hosting provider (e.g., "github.com", "gitlab.com")
+#   - org: Organization/group/user name
+#   - token: Personal Access Token or authentication token
+#   - user: (Optional) Username for authentication (defaults based on host)
+#
+# Examples:
+#
+# GitHub:
+# [[GitAuths]]
+# host = "github.com"
+# org = "mycompany"
+# token = "ghp_xxxxxxxxxxxxxxxxxxxx"
+#
+# GitLab:
+# [[GitAuths]]
+# host = "gitlab.com"
+# org = "my-group"
+# token = "glpat-xxxxxxxxxxxxx"
+#
+# Self-hosted GitLab:
+# [[GitAuths]]
+# host = "gitlab.example.com"
+# org = "internal-team"
+# token = "glpat-yyyyyyyyyyy"
+# user = "git"  # Custom username
+#
+# Note: Athens automatically configures Git URL rewriting to inject credentials
+# when fetching modules. No manual git config is required.
+
 # HGRCPath tells you where the .hgrc path initially resides.
 # This is so that you can mount the .hgrc file to a secret location
 # in the fs system and then move it ~/.hgrc. In certain deployments

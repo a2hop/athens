@@ -1,0 +1,11 @@
+Package: athens-multipat
+Version: 0.0.14
+Section: base
+Priority: optional
+Architecture: amd64
+Maintainer: Athens Team <hello@athensresearch.org>
+Description: Athens Go module proxy with multi-org GitHub PAT support
+ Athens is a Go module datastore and proxy with multi-organization
+ GitHub Personal Access Token support for accessing private repositories
+ across different GitHub organizations.
+Depends: git (>= 2.0), adduser

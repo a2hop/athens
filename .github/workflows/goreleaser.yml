@@ -1,9 +1,11 @@
 name: Publish Build Artifacts
 
 on:
-  push:
-    tags:
-      - '*'
+  workflow_dispatch:
+  # Disabled automatic triggers - using build-deb workflow instead
+  # push:
+  #   tags:
+  #     - '*'
 
 jobs:
   goreleaser:

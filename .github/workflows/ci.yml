@@ -1,12 +1,14 @@
 name: Continuous Integration
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+  # Disabled automatic triggers - using build-deb workflow instead
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
+  #   branches:
+  #     - main
 
 jobs:
   lint:

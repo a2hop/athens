@@ -1,0 +1,35 @@
+[Unit]
+Description=Athens Go Module Proxy
+Documentation=https://docs.gomods.io
+After=network.target
+
+[Service]
+Type=simple
+User=athens
+Group=athens
+WorkingDirectory=/var/lib/athens
+ExecStart=/usr/local/bin/athens -config_file /etc/athens/config.toml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=athens
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ReadWritePaths=/var/lib/athens /var/log/athens
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Environment
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin"
+Environment="HOME=/var/lib/athens"
+Environment="GIT_TERMINAL_PROMPT=0"
+Environment="GIT_CONFIG_GLOBAL=/var/lib/athens/.gitconfig"
+Environment="ATHENS_CONFIG_FILE=/etc/athens/config.toml"
+
+[Install]
+WantedBy=multi-user.target

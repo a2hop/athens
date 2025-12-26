@@ -11,6 +11,10 @@ endif
 build: ## build the athens proxy
 	go build -ldflags="-w -s" -o ./cmd/proxy/proxy ./cmd/proxy
 
+.PHONY: build-credential-helper
+build-credential-helper: ## build the git credential helper for multi-org GitHub PAT support
+	go build -ldflags="-w -s" -o ./git-credential-athens ./cmd/git-credential-athens
+
 .PHONY: build-ver
 build-ver: ## build the athens proxy with version number
 	GO111MODULE=on CGO_ENABLED=0 GOPROXY="https://proxy.golang.org" go build -ldflags "-s -w -X github.com/gomods/athens/pkg/build.version=$(VERSION) -X github.com/gomods/athens/pkg/build.buildDate=$(DATE)" -o athens ./cmd/proxy

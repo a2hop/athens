@@ -38,6 +38,7 @@ func addProxyRoutes(
 	r.HandleFunc("/version", versionHandler)
 	r.HandleFunc("/catalog", catalogHandler(s))
 	r.HandleFunc("/robots.txt", robotsHandler(c))
+	r.HandleFunc("/setup.sh", setupScriptHandler)
 
 	indexer, err := getIndex(c)
 	if err != nil {
